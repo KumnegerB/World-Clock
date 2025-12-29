@@ -988,7 +988,7 @@
 
       // Restore saved clocks.
       loadStored().forEach((item) => renderCard(item.tz, item.label));
-      // Add four famous cities by default when nothing is stored.
+
       if (state.size === 0) {
         const defaults = [
           { tz: "America/New_York", label: "New York" },
