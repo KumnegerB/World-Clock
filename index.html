@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>World Clock Dashboard</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --muted: #9ca3af;
+        --text: #e5e7eb;
+        --accent: #38bdf8;
+        --danger: #f87171;
+        --card: #111c33;
+        --shadow: 0 28px 70px rgba(0, 0, 0, 0.35),
+          0 0 40px rgba(56, 189, 248, 0.08);
+        --radius: 16px;
+        --font-main: "Manrope", "Segoe UI", -apple-system, system-ui, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        min-height: 100vh;
+        background: radial-gradient(
+            circle at 20% 20%,
+            rgba(56, 189, 248, 0.08),
+            transparent 30%
+          ),
+          radial-gradient(
+            circle at 80% 0%,
+            rgba(74, 222, 128, 0.08),
+            transparent 30%
+          ),
+          var(--bg);
+        color: var(--text);
+        font-family: var(--font-main);
+        padding: 32px clamp(16px, 2vw, 48px) 48px;
+        line-height: 1.5;
+      }
+
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+
+      .title {
+        font-size: clamp(24px, 3vw, 36px);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+
+      .subtitle {
+        color: var(--muted);
+        margin-top: 4px;
+        font-size: 14px;
+      }
+
+      .controls {
+        display: flex;
+        gap: 12px;
+        flex: 1;
+        justify-content: flex-end;
+        min-width: 280px;
+      }
+
+      .search {
+        display: flex;
+        flex: 1;
+        gap: 10px;
+        background: var(--panel);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: var(--radius);
+        padding: 8px 10px 8px 14px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+      }
+
+      .search input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: var(--text);
+        font-size: 15px;
+        outline: none;
+      }
+
+      .search button {
+        background: var(--accent);
+        color: #0b1220;
+        border: none;
+        border-radius: 12px;
+        padding: 10px 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 120ms ease, box-shadow 120ms ease;
+        box-shadow: 0 10px 30px rgba(56, 189, 248, 0.25);
+      }
+
+      .search button:hover {
+        transform: translateY(-1px);
+      }
+      .search button:active {
+        transform: translateY(0);
+        box-shadow: none;
+      }
+
+      .toggle {
+        background: rgba(56, 189, 248, 0.14);
+        color: var(--text);
+        border: 1px solid rgba(56, 189, 248, 0.4);
+        border-radius: 12px;
+        padding: 10px 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 120ms ease, border-color 120ms ease;
+      }
+
+      .toggle:hover {
+        transform: translateY(-1px);
+        border-color: var(--accent);
+      }
+      .toggle:active {
+        transform: translateY(0);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        grid-auto-rows: minmax(320px, auto);
+        gap: 18px;
+      }
+
+      @media (min-width: 1200px) {
+        .grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+      }
+
+      .card {
+        background: linear-gradient(
+            140deg,
+            rgba(56, 189, 248, 0.12),
+            transparent 55%
+          ),
+          var(--card);
+        border: 1px solid rgba(148, 163, 184, 0.32);
+        border-radius: var(--radius);
+        padding: 16px;
+        position: relative;
+        box-shadow: var(--shadow);
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+        gap: 10px;
+        overflow: hidden;
+        height: 100%;
+      }
+
+      .card::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          180deg,
+          rgba(0, 0, 0, 0.32),
+          rgba(0, 0, 0, 0.44)
+        );
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 180ms ease;
+      }
+
+      .card.night::after {
+        opacity: 1;
+      }
+
+      .card.dragging {
+        opacity: 0.6;
+      }
+
+      .fade-in {
+        animation: fadeIn 260ms ease forwards;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Toast notifications */
+      #toast {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        display: grid;
+        gap: 10px;
+        z-index: 9999;
+      }
+
+      .toast {
+        background: rgba(56, 189, 248, 0.14);
+        border: 1px solid rgba(56, 189, 248, 0.4);
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 10px;
+        box-shadow: var(--shadow);
+        animation: fadeIn 200ms ease forwards;
+      }
+
+      .card header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 0;
+      }
+
+      .city {
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+
+      .city-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .dn {
+        font-size: 18px;
+        line-height: 1;
+      }
+
+      .remove {
+        background: rgba(248, 113, 113, 0.12);
+        color: var(--danger);
+        border: 1px solid rgba(248, 113, 113, 0.3);
+        border-radius: 10px;
+        padding: 6px 10px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 120ms ease, transform 120ms ease;
+      }
+
+      .remove:hover {
+        background: rgba(248, 113, 113, 0.18);
+        transform: translateY(-1px);
+      }
+      .remove:active {
+        transform: translateY(0);
+      }
+
+      .digital {
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        font-variant-numeric: tabular-nums;
+        color: #f8fafc;
+      }
+
+      .date {
+        color: var(--muted);
+        font-size: 13px;
+        letter-spacing: 0.01em;
+      }
+
+      .diff {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .analog {
+        width: 120px;
+        height: 120px;
+        justify-self: center;
+      }
+
+      .action-btn {
+        background: rgba(56, 189, 248, 0.12);
+        color: var(--text);
+        border: 1px solid rgba(56, 189, 248, 0.38);
+        border-radius: 12px;
+        padding: 10px 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 120ms ease, border-color 120ms ease;
+      }
+
+      .action-btn:hover {
+        transform: translateY(-1px);
+        border-color: var(--accent);
+      }
+      .action-btn:active {
+        transform: translateY(0);
+      }
+
+      @media (max-width: 640px) {
+        body {
+          padding: 20px 14px 40px;
+        }
+        .controls {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .search {
+          width: 100%;
+        }
+        header {
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <div class="title">World Clock Dashboard</div>
+        <div class="subtitle">
+          Add cities by timezone name or city keyword. Powered by your browser.
+        </div>
+      </div>
+      <div class="controls">
+        <label class="search" aria-label="Add city or timezone">
+          <input
+            id="city-input"
+            list="zones"
+            placeholder="e.g. New York, Tokyo, Europe/Paris"
+            autocomplete="off"
+          />
+          <datalist id="zones"></datalist>
+          <button id="add-btn" type="button">Add</button>
+        </label>
+        <button id="geo-btn" class="action-btn" type="button">
+          Use My Location
+        </button>
+        <button
+          id="format-toggle"
+          class="toggle"
+          type="button"
+          aria-label="Toggle 12 or 24 hour time"
+        >
+          24h
+        </button>
+      </div>
+    </header>
+
+    <main class="grid" id="grid"></main>
+    <div id="toast" aria-live="polite" aria-atomic="true"></div>
+
+    <template id="card-template">
+      <article class="card" draggable="true">
+        <header>
+          <div class="city-row">
+            <div class="city"></div>
+            <span class="dn" title="Daytime" aria-label="Daytime">🌞</span>
+          </div>
+          <button class="remove" type="button">Remove</button>
+        </header>
+        <div class="digital"></div>
+        <div class="date"></div>
+        <div class="diff"></div>
+        <canvas class="analog" width="160" height="160"></canvas>
+      </article>
+    </template>
+
+    <script>
+      // Predefined city list for easy search + display labels.
+      const PRESET_CITIES = [
+        // Americas
+        { city: "New York", tz: "America/New_York" },
+        { city: "Washington DC", tz: "America/New_York" },
+        { city: "Miami", tz: "America/New_York" },
+        { city: "Atlanta", tz: "America/New_York" },
+        { city: "Boston", tz: "America/New_York" },
+        { city: "Chicago", tz: "America/Chicago" },
+        { city: "Dallas", tz: "America/Chicago" },
+        { city: "Houston", tz: "America/Chicago" },
+        { city: "Denver", tz: "America/Denver" },
+        { city: "Phoenix", tz: "America/Phoenix" },
+        { city: "Los Angeles", tz: "America/Los_Angeles" },
+        { city: "San Francisco", tz: "America/Los_Angeles" },
+        { city: "Seattle", tz: "America/Los_Angeles" },
+        { city: "Vancouver", tz: "America/Vancouver" },
+        { city: "Toronto", tz: "America/Toronto" },
+        { city: "Montreal", tz: "America/Toronto" },
+        { city: "Mexico City", tz: "America/Mexico_City" },
+        { city: "Panama City", tz: "America/Panama" },
+        { city: "San Juan", tz: "America/Puerto_Rico" },
+        { city: "Bogota", tz: "America/Bogota" },
+        { city: "Quito", tz: "America/Guayaquil" },
+        { city: "Lima", tz: "America/Lima" },
+        { city: "Caracas", tz: "America/Caracas" },
+        { city: "Santiago", tz: "America/Santiago" },
+        { city: "Buenos Aires", tz: "America/Argentina/Buenos_Aires" },
+        { city: "Rio de Janeiro", tz: "America/Sao_Paulo" },
+        { city: "Sao Paulo", tz: "America/Sao_Paulo" },
+        { city: "Montevideo", tz: "America/Montevideo" },
+        { city: "Asuncion", tz: "America/Asuncion" },
+        { city: "La Paz", tz: "America/La_Paz" },
+        { city: "Honolulu", tz: "Pacific/Honolulu" },
+        { city: "Anchorage", tz: "America/Anchorage" },
+
+        // Europe
+        { city: "London", tz: "Europe/London" },
+        { city: "Dublin", tz: "Europe/Dublin" },
+        { city: "Lisbon", tz: "Europe/Lisbon" },
+        { city: "Madrid", tz: "Europe/Madrid" },
+        { city: "Barcelona", tz: "Europe/Madrid" },
+        { city: "Paris", tz: "Europe/Paris" },
+        { city: "Brussels", tz: "Europe/Brussels" },
+        { city: "Amsterdam", tz: "Europe/Amsterdam" },
+        { city: "Luxembourg", tz: "Europe/Luxembourg" },
+        { city: "Zurich", tz: "Europe/Zurich" },
+        { city: "Vienna", tz: "Europe/Vienna" },
+        { city: "Berlin", tz: "Europe/Berlin" },
+        { city: "Frankfurt", tz: "Europe/Berlin" },
+        { city: "Prague", tz: "Europe/Prague" },
+        { city: "Warsaw", tz: "Europe/Warsaw" },
+        { city: "Budapest", tz: "Europe/Budapest" },
+        { city: "Copenhagen", tz: "Europe/Copenhagen" },
+        { city: "Oslo", tz: "Europe/Oslo" },
+        { city: "Stockholm", tz: "Europe/Stockholm" },
+        { city: "Helsinki", tz: "Europe/Helsinki" },
+        { city: "Reykjavik", tz: "Atlantic/Reykjavik" },
+        { city: "Rome", tz: "Europe/Rome" },
+        { city: "Milan", tz: "Europe/Rome" },
+        { city: "Athens", tz: "Europe/Athens" },
+        { city: "Istanbul", tz: "Europe/Istanbul" },
+        { city: "Bucharest", tz: "Europe/Bucharest" },
+        { city: "Sofia", tz: "Europe/Sofia" },
+        { city: "Belgrade", tz: "Europe/Belgrade" },
+        { city: "Kyiv", tz: "Europe/Kyiv" },
+        { city: "Moscow", tz: "Europe/Moscow" },
+        { city: "Tbilisi", tz: "Asia/Tbilisi" },
+        { city: "Yerevan", tz: "Asia/Yerevan" },
+        { city: "Baku", tz: "Asia/Baku" },
+        { city: "Valletta", tz: "Europe/Malta" },
+        { city: "Zurich", tz: "Europe/Zurich" },
+
+        // Middle East
+        { city: "Dubai", tz: "Asia/Dubai" },
+        { city: "Abu Dhabi", tz: "Asia/Dubai" },
+        { city: "Doha", tz: "Asia/Qatar" },
+        { city: "Riyadh", tz: "Asia/Riyadh" },
+        { city: "Kuwait City", tz: "Asia/Kuwait" },
+        { city: "Muscat", tz: "Asia/Muscat" },
+        { city: "Tehran", tz: "Asia/Tehran" },
+        { city: "Baghdad", tz: "Asia/Baghdad" },
+        { city: "Amman", tz: "Asia/Amman" },
+        { city: "Beirut", tz: "Asia/Beirut" },
+        { city: "Jerusalem", tz: "Asia/Jerusalem" },
+        { city: "Doha", tz: "Asia/Qatar" },
+
+        // Africa
+        { city: "Cairo", tz: "Africa/Cairo" },
+        { city: "Casablanca", tz: "Africa/Casablanca" },
+        { city: "Accra", tz: "Africa/Accra" },
+        { city: "Lagos", tz: "Africa/Lagos" },
+        { city: "Dakar", tz: "Africa/Dakar" },
+        { city: "Abidjan", tz: "Africa/Abidjan" },
+        { city: "Nairobi", tz: "Africa/Nairobi" },
+        { city: "Addis Ababa", tz: "Africa/Addis_Ababa" },
+        { city: "Ethiopia", tz: "Africa/Addis_Ababa" },
+        { city: "Dar es Salaam", tz: "Africa/Dar_es_Salaam" },
+        { city: "Kampala", tz: "Africa/Kampala" },
+        { city: "Kigali", tz: "Africa/Kigali" },
+        { city: "Johannesburg", tz: "Africa/Johannesburg" },
+        { city: "Cape Town", tz: "Africa/Johannesburg" },
+        { city: "Maputo", tz: "Africa/Maputo" },
+        { city: "Tunis", tz: "Africa/Tunis" },
+        { city: "Algiers", tz: "Africa/Algiers" },
+
+        // South Asia & Central Asia
+        { city: "Karachi", tz: "Asia/Karachi" },
+        { city: "Lahore", tz: "Asia/Karachi" },
+        { city: "Kabul", tz: "Asia/Kabul" },
+        { city: "New Delhi", tz: "Asia/Kolkata" },
+        { city: "Mumbai", tz: "Asia/Kolkata" },
+        { city: "Colombo", tz: "Asia/Colombo" },
+        { city: "Kathmandu", tz: "Asia/Kathmandu" },
+        { city: "Dhaka", tz: "Asia/Dhaka" },
+        { city: "Yangon", tz: "Asia/Yangon" },
+        { city: "Thimphu", tz: "Asia/Thimphu" },
+        { city: "Almaty", tz: "Asia/Almaty" },
+        { city: "Tashkent", tz: "Asia/Tashkent" },
+
+        // Southeast Asia & East Asia
+        { city: "Bangkok", tz: "Asia/Bangkok" },
+        { city: "Ho Chi Minh City", tz: "Asia/Ho_Chi_Minh" },
+        { city: "Hanoi", tz: "Asia/Ho_Chi_Minh" },
+        { city: "Jakarta", tz: "Asia/Jakarta" },
+        { city: "Kuala Lumpur", tz: "Asia/Kuala_Lumpur" },
+        { city: "Singapore", tz: "Asia/Singapore" },
+        { city: "Manila", tz: "Asia/Manila" },
+        { city: "Hong Kong", tz: "Asia/Hong_Kong" },
+        { city: "Macau", tz: "Asia/Macau" },
+        { city: "Taipei", tz: "Asia/Taipei" },
+        { city: "Beijing", tz: "Asia/Shanghai" },
+        { city: "Shanghai", tz: "Asia/Shanghai" },
+        { city: "Shenzhen", tz: "Asia/Shanghai" },
+        { city: "Seoul", tz: "Asia/Seoul" },
+        { city: "Tokyo", tz: "Asia/Tokyo" },
+        { city: "Osaka", tz: "Asia/Tokyo" },
+
+        // Australia & Pacific
+        { city: "Sydney", tz: "Australia/Sydney" },
+        { city: "Melbourne", tz: "Australia/Melbourne" },
+        { city: "Brisbane", tz: "Australia/Brisbane" },
+        { city: "Adelaide", tz: "Australia/Adelaide" },
+        { city: "Perth", tz: "Australia/Perth" },
+        { city: "Auckland", tz: "Pacific/Auckland" },
+        { city: "Wellington", tz: "Pacific/Auckland" },
+        { city: "Suva", tz: "Pacific/Fiji" },
+        { city: "Port Moresby", tz: "Pacific/Port_Moresby" },
+        { city: "Apia", tz: "Pacific/Apia" },
+        { city: "Papeete", tz: "Pacific/Tahiti" },
+      ];
+
+      // Preload common IANA zones; users can still type any valid zone.
+      const TIMEZONES = [
+        ...new Set([
+          ...PRESET_CITIES.map((c) => c.tz),
+          "Pacific/Honolulu",
+          "America/Anchorage",
+          "America/Los_Angeles",
+          "America/Denver",
+          "America/Chicago",
+          "America/New_York",
+          "America/Toronto",
+          "America/Mexico_City",
+          "America/Bogota",
+          "America/Lima",
+          "America/Sao_Paulo",
+          "Atlantic/Azores",
+          "Europe/London",
+          "Europe/Dublin",
+          "Europe/Lisbon",
+          "Europe/Paris",
+          "Europe/Amsterdam",
+          "Europe/Berlin",
+          "Europe/Rome",
+          "Europe/Madrid",
+          "Europe/Prague",
+          "Europe/Warsaw",
+          "Europe/Helsinki",
+          "Europe/Moscow",
+          "Africa/Cairo",
+          "Africa/Johannesburg",
+          "Asia/Jerusalem",
+          "Asia/Dubai",
+          "Asia/Karachi",
+          "Asia/Kolkata",
+          "Asia/Dhaka",
+          "Asia/Bangkok",
+          "Asia/Kuala_Lumpur",
+          "Asia/Shanghai",
+          "Asia/Tokyo",
+          "Asia/Seoul",
+          "Australia/Perth",
+          "Australia/Sydney",
+          "Pacific/Auckland",
+          "Pacific/Fiji",
+        ]),
+      ];
+
+      const grid = document.getElementById("grid");
+      const input = document.getElementById("city-input");
+      const datalist = document.getElementById("zones");
+      const template = document.getElementById("card-template");
+      const addBtn = document.getElementById("add-btn");
+      const toggleBtn = document.getElementById("format-toggle");
+      const geoBtn = document.getElementById("geo-btn");
+
+      const MAX_CLOCKS = 12;
+
+      const CITY_TO_ZONE = new Map(
+        PRESET_CITIES.map((c) => [c.city.toLowerCase(), c.tz])
+      );
+      const ZONE_TO_CITY = (() => {
+        const m = new Map();
+        PRESET_CITIES.forEach((c) => {
+          if (!m.has(c.tz)) m.set(c.tz, c.city);
+        });
+        return m;
+      })();
+
+      // Persist clocks between visits.
+      const loadStored = () =>
+        JSON.parse(localStorage.getItem("world-clock-cities") || "[]");
+      const saveStored = (items) =>
+        localStorage.setItem("world-clock-cities", JSON.stringify(items));
+      const HOUR12_KEY = "world-clock-hour12";
+      const storedHourPref = localStorage.getItem(HOUR12_KEY);
+      let useHour12 =
+        storedHourPref === null ? true : storedHourPref === "true"; // default to 12h when unset
+
+      const state = new Map(); // key: timezone, value: data
+
+      const persist = () => {
+        const minimal = [...state.values()].map(({ tz, label }) => ({
+          tz,
+          label,
+        }));
+        saveStored(minimal);
+      };
+
+      const updateLimitUI = () => {
+        const atLimit = state.size >= MAX_CLOCKS;
+        addBtn.disabled = atLimit;
+        geoBtn.disabled = atLimit;
+        input.disabled = atLimit;
+        input.placeholder = atLimit
+          ? `Limit reached (${MAX_CLOCKS}). Remove one to add another.`
+          : "e.g. New York, Tokyo, Europe/Paris";
+      };
+
+      const reorderStateFromDom = () => {
+        const ordered = [...grid.querySelectorAll(".card")].map(
+          (card) => card.dataset.tz
+        );
+        const newState = new Map();
+        ordered.forEach((tz) => {
+          if (state.has(tz)) {
+            newState.set(tz, state.get(tz));
+          }
+        });
+        // Preserve any not in DOM (should not happen) at end.
+        state.forEach((value, tz) => {
+          if (!newState.has(tz)) newState.set(tz, value);
+        });
+        state.clear();
+        newState.forEach((val, tz) => state.set(tz, val));
+        persist();
+      };
+
+      // Populate datalist for quick picks using city names and zone strings.
+      PRESET_CITIES.forEach(({ city, tz }) => {
+        const option = document.createElement("option");
+        option.value = city;
+        option.label = `${city} — ${tz}`;
+        datalist.appendChild(option);
+      });
+
+      TIMEZONES.forEach((zone) => {
+        const option = document.createElement("option");
+        option.value = zone;
+        datalist.appendChild(option);
+      });
+
+      const formatDigital = (date, tz, hour12) =>
+        new Intl.DateTimeFormat("en", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12,
+          timeZone: tz,
+        }).format(date);
+
+      const formatDate = (date, tz) =>
+        new Intl.DateTimeFormat("en", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          timeZone: tz,
+        }).format(date);
+
+      const currentHM = (date, tz) => {
+        const d = new Date(date.toLocaleString("en-US", { timeZone: tz }));
+        return d.getHours() * 60 + d.getMinutes();
+      };
+      const toastEl = document.getElementById("toast");
+      const notify = (msg) => {
+        if (!toastEl) return alert(msg);
+        const el = document.createElement("div");
+        el.className = "toast";
+        el.textContent = msg;
+        toastEl.appendChild(el);
+        setTimeout(() => {
+          el.remove();
+        }, 3500);
+      };
+
+      const offsetFromLocalMinutes = (date, tz) => {
+        const locale = new Date(date.toLocaleString("en-US", { timeZone: tz }));
+        return (locale.getTime() - date.getTime()) / 60000; // positive when ahead of local
+      };
+
+      const formatOffset = (minutes) => {
+        const sign = minutes >= 0 ? "+" : "-";
+        const abs = Math.abs(Math.round(minutes));
+        const hrs = Math.floor(abs / 60);
+        const mins = abs % 60;
+        if (hrs === 0) return `${sign}${mins}m`;
+        return `${sign}${hrs}:${mins.toString().padStart(2, "0")}`;
+      };
+
+      const drawAnalog = (canvas, date, tz) => {
+        const ctx = canvas.getContext("2d");
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        // Face
+        ctx.save();
+        ctx.translate(w / 2, h / 2);
+        const radius = Math.min(w, h) / 2 - 8;
+        ctx.strokeStyle = "rgba(229, 231, 235, 0.3)";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Ticks
+        for (let i = 0; i < 60; i++) {
+          ctx.save();
+          ctx.rotate((Math.PI / 30) * i);
+          ctx.beginPath();
+          ctx.moveTo(0, -radius);
+          ctx.lineTo(0, -radius + (i % 5 === 0 ? 12 : 6));
+          ctx.strokeStyle =
+            i % 5 === 0
+              ? "rgba(56, 189, 248, 0.9)"
+              : "rgba(229, 231, 235, 0.35)";
+          ctx.lineWidth = i % 5 === 0 ? 3 : 1.5;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Time parts
+        const localeDate = new Date(
+          date.toLocaleString("en-US", { timeZone: tz })
+        );
+        const seconds = localeDate.getSeconds();
+        const minutes = localeDate.getMinutes() + seconds / 60;
+        const hours = (localeDate.getHours() % 12) + minutes / 60;
+
+        const hand = (angle, length, width, color) => {
+          ctx.save();
+          ctx.rotate(angle);
+          ctx.beginPath();
+          ctx.moveTo(0, 10);
+          ctx.lineTo(0, -length);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = width;
+          ctx.lineCap = "round";
+          ctx.stroke();
+          ctx.restore();
+        };
+
+        hand(hours * (Math.PI / 6), radius * 0.45, 5, "#e5e7eb");
+        hand(minutes * (Math.PI / 30), radius * 0.7, 4, "#38bdf8");
+        hand(seconds * (Math.PI / 30), radius * 0.8, 2, "#f87171");
+
+        // Center cap
+        ctx.beginPath();
+        ctx.fillStyle = "#e5e7eb";
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      };
+
+      const renderCard = (tz, label) => {
+        const node = template.content.firstElementChild.cloneNode(true);
+        const cityEl = node.querySelector(".city");
+        const digitalEl = node.querySelector(".digital");
+        const dateEl = node.querySelector(".date");
+        const diffEl = node.querySelector(".diff");
+        const canvas = node.querySelector(".analog");
+        const dnEl = node.querySelector(".dn");
+        const removeBtn = node.querySelector(".remove");
+
+        node.dataset.tz = tz;
+        node.classList.add("fade-in");
+        setTimeout(() => node.classList.remove("fade-in"), 320);
+
+        cityEl.textContent = label || tz;
+
+        removeBtn.addEventListener("click", () => {
+          node.remove();
+          state.delete(tz);
+          persist();
+          updateLimitUI();
+        });
+
+        // Drag-to-reorder hooks.
+        node.addEventListener("dragstart", (e) => {
+          node.classList.add("dragging");
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", tz);
+        });
+
+        node.addEventListener("dragend", () => {
+          node.classList.remove("dragging");
+          reorderStateFromDom();
+        });
+
+        node.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          const dragging = grid.querySelector(".dragging");
+          if (!dragging || dragging === node) return;
+          const cards = [...grid.querySelectorAll(".card")];
+          const draggingIndex = cards.indexOf(dragging);
+          const targetIndex = cards.indexOf(node);
+          if (draggingIndex < targetIndex) {
+            grid.insertBefore(dragging, node.nextSibling);
+          } else {
+            grid.insertBefore(dragging, node);
+          }
+        });
+
+        grid.appendChild(node);
+
+        state.set(tz, {
+          tz,
+          label,
+          digitalEl,
+          dateEl,
+          diffEl,
+          canvas,
+          node,
+          dnEl,
+        });
+      };
+
+      const updateAll = () => {
+        const now = new Date();
+
+        state.forEach(
+          ({ tz, digitalEl, dateEl, diffEl, canvas, node, dnEl }) => {
+            digitalEl.textContent = formatDigital(now, tz, useHour12);
+            dateEl.textContent = formatDate(now, tz);
+
+            const offset = offsetFromLocalMinutes(now, tz);
+            diffEl.textContent = `Time difference: ${formatOffset(
+              offset
+            )} vs you`;
+
+            const tzDate = new Date(
+              now.toLocaleString("en-US", { timeZone: tz })
+            );
+            const hour = tzDate.getHours();
+            const isNight = hour >= 19 || hour < 6;
+            node.classList.toggle("night", isNight);
+
+            if (dnEl) {
+              dnEl.textContent = isNight ? "🌙" : "🌞";
+              dnEl.title = isNight ? "Night" : "Daytime";
+              dnEl.setAttribute("aria-label", isNight ? "Night" : "Daytime");
+            }
+
+            drawAnalog(canvas, now, tz);
+          }
+        );
+      };
+
+      const resolveZone = (raw) => {
+        const value = raw.trim();
+        if (!value) return null;
+
+        const lower = value.toLowerCase();
+
+        // Exact city match from presets.
+        if (CITY_TO_ZONE.has(lower)) {
+          const tz = CITY_TO_ZONE.get(lower);
+          const preset = PRESET_CITIES.find(
+            (c) => c.city.toLowerCase() === lower
+          );
+          const label = preset ? preset.city : value;
+          return { tz, label };
+        }
+
+        // Exact timezone match.
+        const directZone = TIMEZONES.find((z) => z.toLowerCase() === lower);
+        if (directZone)
+          return { tz: directZone, label: ZONE_TO_CITY.get(directZone) };
+
+        // Fuzzy city match.
+        const fuzzyCity = PRESET_CITIES.find(({ city }) =>
+          city.toLowerCase().includes(lower)
+        );
+        if (fuzzyCity) return { tz: fuzzyCity.tz, label: fuzzyCity.city };
+
+        // Fuzzy timezone match.
+        const fuzzyZone = TIMEZONES.find((z) =>
+          z.toLowerCase().includes(lower)
+        );
+        if (fuzzyZone)
+          return { tz: fuzzyZone, label: ZONE_TO_CITY.get(fuzzyZone) };
+
+        // As a last resort, try raw value as timezone.
+        try {
+          new Intl.DateTimeFormat("en", { timeZone: value });
+          const label = value.split("/").pop().replace(/_/g, " ");
+          return { tz: value, label };
+        } catch (e) {
+          return null;
+        }
+      };
+
+      const addTimezone = (tz, label) => {
+        if (!tz) return;
+        if (state.size >= MAX_CLOCKS) {
+          alert(
+            `You can keep up to ${MAX_CLOCKS} clocks. Remove one to add another.`
+          );
+          return;
+        }
+        const cleanLabel = label || tz.split("/").pop().replace(/_/g, " ");
+
+        if (state.has(tz)) {
+          notify(`${cleanLabel} is already added.`);
+          return;
+        }
+
+        // Notify if same local time (hour:minute) as any existing card
+        const now = new Date();
+        const newHM = currentHM(now, tz);
+        const match = [...state.values()].find(
+          (item) => currentHM(now, item.tz) === newHM
+        );
+
+        if (match) {
+          notify(`${cleanLabel} has the same time as ${match.label}.`);
+        }
+        renderCard(tz, cleanLabel);
+        persist();
+        updateLimitUI();
+      };
+
+      const addCity = () => {
+        const resolved = resolveZone(input.value);
+        if (!resolved || state.has(resolved.tz)) {
+          input.value = "";
+          return;
+        }
+        addTimezone(resolved.tz, resolved.label);
+        input.value = "";
+      };
+
+      addBtn.addEventListener("click", addCity);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") addCity();
+      });
+
+      const updateToggleLabel = () => {
+        toggleBtn.textContent = useHour12 ? "12h" : "24h";
+      };
+      toggleBtn.addEventListener("click", () => {
+        useHour12 = !useHour12;
+        localStorage.setItem(HOUR12_KEY, useHour12);
+        updateToggleLabel();
+        updateAll();
+      });
+
+      const addCurrentLocation = () => {
+        const fallback = () => {
+          const local = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          addTimezone(local, "Current location");
+        };
+
+        if (!navigator.geolocation) {
+          fallback();
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          () => fallback(),
+          () => fallback(),
+          { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+        );
+      };
+
+      geoBtn.addEventListener("click", addCurrentLocation);
+
+      // Restore saved clocks.
+      loadStored().forEach((item) => renderCard(item.tz, item.label));
+      // Add four famous cities by default when nothing is stored.
+      if (state.size === 0) {
+        const defaults = [
+          { tz: "America/New_York", label: "New York" },
+          { tz: "Europe/London", label: "London" },
+          { tz: "Asia/Tokyo", label: "Tokyo" },
+          { tz: "Australia/Sydney", label: "Sydney" },
+        ];
+
+        defaults.forEach(({ tz, label }) => addTimezone(tz, label));
+      }
+
+      updateToggleLabel();
+      updateLimitUI();
+      updateAll();
+      setInterval(updateAll, 1000);
+    </script>
+  </body>
+</html>
